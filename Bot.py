@@ -1,7 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
-TOKEN = '8502751140:AAFMH4CRT9aMsdbCx7nWJWHJlApNYnqsG4s' # Apna token yahan phir se dalein
+TOKEN = '8502751140:AAFGLaPXmzDC8ON4ColkIdzu_1nspuqcxeM' # Apna token yahan phir se dalein
 
 # /start command par buttons dikhane ke liye
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
