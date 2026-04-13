@@ -1,82 +1,88 @@
 import os
 import subprocess
 import re
+import random
 from telegram import Update, ChatPermissions
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 # --- APNA TOKEN YAHAN DALEN ---
-TOKEN = "8502751140:AAFp61fB5hZLj6u8pWltvFiWgkf-7wAjkPY"
+TOKEN = "8502751140:AAGcIoj6al-fv6BZBvSveHRg9g496Et_y9U"
 
-# 1. Start Command
+# 1. Start & Help
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Phoenix Pro Bot Active hai! 🔥\nID nikalne ke liye /id use karein.")
+    await update.message.reply_text(
+        "Phoenix Pro Bot Active hai! 🔥\n\n"
+        "🎮 **Games:** /guess, /dice\n"
+        "🛡 **Admin:** /ban, /mute, /staff\n"
+        "🆔 **Info:** /id"
+    )
 
-# 2. User ID & Group ID nikalne ka feature
+# 2. Game: Number Guessing
+async def guess_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    number = random.randint(1, 10)
+    context.chat_data['secret'] = number
+    await update.message.reply_text("🎮 **Game Shuru!**\nMaine 1 se 10 ke beech ek number socha hai. Guess karo kya hai?")
+
+# 3. Game: Dice Roll
+async def roll_dice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_dice(emoji="🎲")
+
+# 4. ID Feature
 async def get_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
     if update.message.reply_to_message:
-        # Agar kisi ke message par reply kiya hai
-        target_user = update.message.reply_to_message.from_user
-        await update.message.reply_text(
-            f"👤 **User Info:**\n"
-            f"Name: {target_user.first_name}\n"
-            f"User ID: `{target_user.id}`\n"
-            f"Group ID: `{chat_id}`",
-            parse_mode='Markdown'
-        )
+        target = update.message.reply_to_message.from_user
+        await update.message.reply_text(f"👤 Name: {target.first_name}\n🆔 ID: `{target.id}`", parse_mode='Markdown')
     else:
-        # Agar sirf /id likha hai
-        user_id = update.effective_user.id
-        await update.message.reply_text(
-            f"🆔 **Aapki Info:**\n"
-            f"User ID: `{user_id}`\n"
-            f"Group ID: `{chat_id}`",
-            parse_mode='Markdown'
-        )
+        await update.message.reply_text(f"🆔 Aapki ID: `{update.effective_user.id}`", parse_mode='Markdown')
 
-# 3. Staff/Admin List dekhne ke liye
-async def staff(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    admins = await update.effective_chat.get_administrators()
-    admin_list = "🛡 **Group Admins:**\n"
-    for admin in admins:
-        admin_list += f"• @{admin.user.username or admin.user.first_name}\n"
-    await update.message.reply_text(admin_list)
-
-# 4. Anti-Link (Pehle wala feature)
-async def delete_links(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# 5. Security: Delete Links & Media
+async def security_filter(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    member = await context.bot.get_chat_member(update.effective_chat.id, user_id)
+    chat_id = update.effective_chat.id
+    
+    # Check if Admin
+    member = await context.bot.get_chat_member(chat_id, user_id)
     if member.status in ['creator', 'administrator']:
+        # Admin ke liye Guess Check logic
+        await check_guess_logic(update, context)
         return
+
+    # Anti-Link
     text = update.message.text or update.message.caption or ""
     if re.findall(r'(https?://\S+|www\.\S+)', text):
         await update.message.delete()
-        await update.message.chat.send_message(f"🚫 @{update.effective_user.username}, Links allowed nahi hain!")
-
-# 5. Media Filter (Nudes/Spam rokne ke liye)
-async def filter_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    member = await context.bot.get_chat_member(update.effective_chat.id, user_id)
-    if member.status in ['creator', 'administrator']:
         return
-    await update.message.delete()
+
+    # Anti-Media (Nudes/Spam protection)
+    if update.message.photo or update.message.video or update.message.animation:
+        await update.message.delete()
+        return
+        
+    # Guess check for normal users
+    await check_guess_logic(update, context)
+
+async def check_guess_logic(update, context):
+    if 'secret' in context.chat_data and update.message.text:
+        try:
+            guess = int(update.message.text)
+            if guess == context.chat_data['secret']:
+                await update.message.reply_text(f"🥳 Waah! @{update.effective_user.username} ne sahi pehchana! Number {guess} tha.")
+                del context.chat_data['secret']
+        except ValueError:
+            pass
 
 # Main Application
 if __name__ == '__main__':
     app = ApplicationBuilder().token(TOKEN).build()
 
-    # Commands
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("guess", guess_game))
+    app.add_handler(CommandHandler("dice", roll_dice))
     app.add_handler(CommandHandler("id", get_id))
-    app.add_handler(CommandHandler("staff", staff))
     
-    # Filters
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), delete_links))
-    app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.ANIMATION, filter_media))
+    # Combined filter for Security and Games
+    app.add_handler(MessageHandler(filters.ALL & (~filters.COMMAND), security_filter))
 
-    print("Bot is running with Advanced ID features...")
-    
-    # Render Workaround
+    print("Bot is running with Games & Security...")
     subprocess.Popen(["python", "-m", "http.server", os.environ.get("PORT", "8080")])
-    
     app.run_polling()
