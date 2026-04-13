@@ -5,7 +5,7 @@ from telegram import Update, ChatPermissions
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 
 # --- APNA TOKEN YAHAN DALEN ---
-TOKEN = "8502751140:AAFGLaPXmzDC8ON4ColkIdzu_1nspuqcxeM"
+TOKEN = "8502751140:AAFp61fB5hZLj6u8pWltvFiWgkf-7wAjkPY"
 
 # 1. Start Command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
